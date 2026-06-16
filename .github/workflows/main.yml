@@ -1,8 +1,5 @@
-# .github/workflows/ci.yml
-
 name: Python Factorial CI
 
-# Trigger the workflow on push or pull request to the main branch
 on:
   push:
     branches:
@@ -14,25 +11,47 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    
+    # 1. GRANT PERMISSION: Give the workflow permission to push files back to your repo
+    permissions:
+      contents: write
 
     steps:
-      # 1. Check out the repository code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Set up Python environment
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      # 3. Install dependencies (pytest)
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest
 
-      # 4. Run the tests
       - name: Run pytest
         run: |
           pytest -v
+
+      # 2. CREATE FILE: This step ONLY runs if the 'Run pytest' step above succeeded
+      - name: Create output file if tests pass
+        if: success()
+        run: |
+          echo "✅ All test cases passed successfully!" > test_output.txt
+          echo "Generated on: $(date)" >> test_output.txt
+          echo "Commit SHA: ${{ github.sha }}" >> test_output.txt
+
+      # 3. PUSH FILE: Commit the new file and push it back to GitHub
+      - name: Commit and push output file
+        # We only do this on direct pushes to 'main' to avoid permission errors on Pull Requests
+        if: success() && github.event_name == 'push'
+        run: |
+          # Set up Git user for the commit
+          git config --global user.name '0xJeevs'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # Add, commit, and push the file
+          git add test_output.txt
+          git commit -m "docs: update test output file [skip ci]" || echo "No changes to commit"
+          git push
